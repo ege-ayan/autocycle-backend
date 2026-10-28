@@ -34,7 +34,7 @@ class ImageServiceTest {
 	void asksGeminiForASquarePngAndStoresIt() throws Exception {
 		byte[] png = {1, 2, 3};
 		stub(200, """
-				{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"%s"}}]}}]}
+				{"output_image":{"type":"image","mime_type":"image/png","data":"%s"}}
 				""".formatted(Base64.getEncoder().encodeToString(png)));
 		when(storage.uploadPng(any(), eq("Ocean Runner"))).thenReturn("https://cdn.test/ocean.png");
 
@@ -42,7 +42,7 @@ class ImageServiceTest {
 
 		ArgumentCaptor<HttpRequest> request = ArgumentCaptor.forClass(HttpRequest.class);
 		verify(http).send(request.capture(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any());
-		assertThat(request.getValue().uri().toString()).contains("gemini-3.1-flash-image:generateContent");
+		assertThat(request.getValue().uri().toString()).isEqualTo("https://generativelanguage.googleapis.com/v1beta/interactions");
 		assertThat(request.getValue().headers().firstValue("x-goog-api-key")).contains("test-key");
 		assertThat(request.getValue().bodyPublisher()).isPresent();
 		assertThat(url).isEqualTo("https://cdn.test/ocean.png");
@@ -53,7 +53,7 @@ class ImageServiceTest {
 
 	@Test
 	void rejectsAResponseWithoutAnImage() throws Exception {
-		stub(200, "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"no image\"}]}}]}");
+		stub(200, "{\"steps\":[{\"content\":[{\"type\":\"text\",\"text\":\"no image\"}]}]}");
 
 		assertThatThrownBy(() -> images.create("prompt", "Shoe"))
 				.isInstanceOf(GenerationException.class)
@@ -79,7 +79,7 @@ class ImageServiceTest {
 	private static AiProperties properties() {
 		AiProperties properties = new AiProperties();
 		properties.getGemini().setApiKey("test-key");
-		properties.getGemini().setImageModel("gemini-3.1-flash-image");
+		properties.getGemini().setImageModel("gemini-nano-banana-2.1");
 		return properties;
 	}
 }

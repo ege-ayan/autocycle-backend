@@ -24,6 +24,6 @@ public class AiProperties {
 	@Setter
 	public static class Gemini {
 		private String apiKey = "";
-		private String imageModel = "gemini-3.1-flash-image";
+		private String imageModel = "gemini-nano-banana-2.1";
 	}
 }

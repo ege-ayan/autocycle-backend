@@ -25,7 +25,7 @@ ai:
     embedding-model: amazon.titan-embed-text-v2:0
   gemini:
     api-key: test-key
-    image-model: gemini-3.1-flash-image
+    image-model: gemini-nano-banana-2.1
 
 logging:
   level:

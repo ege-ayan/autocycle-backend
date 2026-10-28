@@ -23,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 public class ImageService implements ProductImageService {
 
-	private static final String ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent";
+	private static final URI ENDPOINT = URI.create("https://generativelanguage.googleapis.com/v1beta/interactions");
 
 	private final AiProperties properties;
 	private final ObjectStorage storage;
@@ -54,13 +54,17 @@ public class ImageService implements ProductImageService {
 		if (!StringUtils.hasText(apiKey)) {
 			throw new GenerationException("Gemini API key is not configured.");
 		}
-		String model = properties.getGemini().getImageModel();
 		String body = jsonMapper.writeValueAsString(Map.of(
-				"contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
-				"generationConfig", Map.of("imageConfig", Map.of("aspectRatio", "1:1"))));
+				"model", properties.getGemini().getImageModel(),
+				"input", List.of(Map.of("type", "text", "text", prompt)),
+				"response_format", Map.of(
+						"type", "image",
+						"mime_type", "image/png",
+						"aspect_ratio", "1:1",
+						"image_size", "1K")));
 		HttpRequest request = HttpRequest.newBuilder()
-				.uri(URI.create(ENDPOINT.formatted(model)))
-				.timeout(Duration.ofSeconds(60))
+				.uri(ENDPOINT)
+				.timeout(Duration.ofSeconds(90))
 				.header("Content-Type", "application/json")
 				.header("x-goog-api-key", apiKey)
 				.POST(HttpRequest.BodyPublishers.ofString(body))
@@ -86,16 +90,30 @@ public class ImageService implements ProductImageService {
 	}
 
 	private static String inlineImage(JsonNode root) {
-		for (JsonNode candidate : root.path("candidates")) {
-			for (JsonNode part : candidate.path("content").path("parts")) {
-				JsonNode inline = part.has("inlineData") ? part.path("inlineData") : part.path("inline_data");
-				String data = inline.path("data").asString("");
+		String direct = imageData(root.path("output_image"));
+		if (direct.isBlank()) {
+			direct = imageData(root.path("outputImage"));
+		}
+		if (!direct.isBlank()) {
+			return direct;
+		}
+		for (JsonNode step : root.path("steps")) {
+			for (JsonNode block : step.path("content")) {
+				String data = imageData(block);
 				if (!data.isBlank()) {
 					return data;
 				}
 			}
 		}
 		return "";
+	}
+
+	private static String imageData(JsonNode node) {
+		String type = node.path("type").asString("");
+		if (!type.isEmpty() && !"image".equals(type)) {
+			return "";
+		}
+		return node.path("data").asString("");
 	}
 
 	private String errorMessage(HttpResponse<String> response) {
