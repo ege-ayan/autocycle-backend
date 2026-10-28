@@ -46,7 +46,7 @@ public class ImageService implements ProductImageService {
 
 	@Override
 	public String create(String prompt, String productName) {
-		return storage.uploadPng(generate(prompt), productName);
+		return storage.upload(generate(prompt), "product-images", productName, "image/jpeg", "jpg");
 	}
 
 	private byte[] generate(String prompt) {
@@ -59,7 +59,7 @@ public class ImageService implements ProductImageService {
 				"input", List.of(Map.of("type", "text", "text", prompt)),
 				"response_format", Map.of(
 						"type", "image",
-						"mime_type", "image/png",
+						"mime_type", "image/jpeg",
 						"aspect_ratio", "1:1",
 						"image_size", "1K")));
 		HttpRequest request = HttpRequest.newBuilder()

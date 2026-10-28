@@ -36,7 +36,8 @@ class ImageServiceTest {
 		stub(200, """
 				{"output_image":{"type":"image","mime_type":"image/png","data":"%s"}}
 				""".formatted(Base64.getEncoder().encodeToString(png)));
-		when(storage.uploadPng(any(), eq("Ocean Runner"))).thenReturn("https://cdn.test/ocean.png");
+		when(storage.upload(any(), eq("product-images"), eq("Ocean Runner"), eq("image/jpeg"), eq("jpg")))
+				.thenReturn("https://cdn.test/ocean.jpg");
 
 		String url = images.create("a recycled sneaker", "Ocean Runner");
 
@@ -45,9 +46,9 @@ class ImageServiceTest {
 		assertThat(request.getValue().uri().toString()).isEqualTo("https://generativelanguage.googleapis.com/v1beta/interactions");
 		assertThat(request.getValue().headers().firstValue("x-goog-api-key")).contains("test-key");
 		assertThat(request.getValue().bodyPublisher()).isPresent();
-		assertThat(url).isEqualTo("https://cdn.test/ocean.png");
+		assertThat(url).isEqualTo("https://cdn.test/ocean.jpg");
 		ArgumentCaptor<byte[]> stored = ArgumentCaptor.forClass(byte[].class);
-		verify(storage).uploadPng(stored.capture(), eq("Ocean Runner"));
+		verify(storage).upload(stored.capture(), eq("product-images"), eq("Ocean Runner"), eq("image/jpeg"), eq("jpg"));
 		assertThat(stored.getValue()).containsExactly(png);
 	}
 
