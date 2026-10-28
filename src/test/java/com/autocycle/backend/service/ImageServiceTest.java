@@ -8,41 +8,43 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Base64;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 
 import com.autocycle.backend.config.AiProperties;
 import com.autocycle.backend.exception.GenerationException;
 
-import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
-import software.amazon.awssdk.services.bedrockruntime.model.BedrockRuntimeException;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+import tools.jackson.databind.json.JsonMapper;
 
+@SuppressWarnings("unchecked")
 class ImageServiceTest {
 
-	private final BedrockRuntimeClient bedrock = mock(BedrockRuntimeClient.class);
+	private final HttpClient http = mock(HttpClient.class);
 	private final ObjectStorage storage = mock(ObjectStorage.class);
-	private final ImageService images = new ImageService(new AiProperties(), bedrock, storage, tools.jackson.databind.json.JsonMapper.builder().build());
+	private final ImageService images = new ImageService(properties(), storage, JsonMapper.builder().build(), http);
 
 	@Test
-	void asksNovaCanvasForOneSquarePngAndStoresIt() {
+	void asksGeminiForASquarePngAndStoresIt() throws Exception {
 		byte[] png = {1, 2, 3};
-		when(bedrock.invokeModel(any(InvokeModelRequest.class))).thenReturn(InvokeModelResponse.builder()
-				.body(SdkBytes.fromUtf8String("{\"images\":[\"" + Base64.getEncoder().encodeToString(png) + "\"]}"))
-				.build());
+		stub(200, """
+				{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"%s"}}]}}]}
+				""".formatted(Base64.getEncoder().encodeToString(png)));
 		when(storage.uploadPng(any(), eq("Ocean Runner"))).thenReturn("https://cdn.test/ocean.png");
 
 		String url = images.create("a recycled sneaker", "Ocean Runner");
 
-		ArgumentCaptor<InvokeModelRequest> request = ArgumentCaptor.forClass(InvokeModelRequest.class);
-		verify(bedrock).invokeModel(request.capture());
-		String body = request.getValue().body().asUtf8String();
-		assertThat(request.getValue().modelId()).isEqualTo("amazon.nova-canvas-v1:0");
-		assertThat(body).contains("TEXT_IMAGE").contains("a recycled sneaker").contains("1024").contains("8.0");
+		ArgumentCaptor<HttpRequest> request = ArgumentCaptor.forClass(HttpRequest.class);
+		verify(http).send(request.capture(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any());
+		assertThat(request.getValue().uri().toString()).contains("gemini-3.1-flash-image:generateContent");
+		assertThat(request.getValue().headers().firstValue("x-goog-api-key")).contains("test-key");
+		assertThat(request.getValue().bodyPublisher()).isPresent();
 		assertThat(url).isEqualTo("https://cdn.test/ocean.png");
 		ArgumentCaptor<byte[]> stored = ArgumentCaptor.forClass(byte[].class);
 		verify(storage).uploadPng(stored.capture(), eq("Ocean Runner"));
@@ -50,10 +52,8 @@ class ImageServiceTest {
 	}
 
 	@Test
-	void rejectsAnEmptyImageList() {
-		when(bedrock.invokeModel(any(InvokeModelRequest.class))).thenReturn(InvokeModelResponse.builder()
-				.body(SdkBytes.fromUtf8String("{\"images\":[]}"))
-				.build());
+	void rejectsAResponseWithoutAnImage() throws Exception {
+		stub(200, "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"no image\"}]}}]}");
 
 		assertThatThrownBy(() -> images.create("prompt", "Shoe"))
 				.isInstanceOf(GenerationException.class)
@@ -61,12 +61,25 @@ class ImageServiceTest {
 	}
 
 	@Test
-	void reportsTheBedrockErrorMessage() {
-		when(bedrock.invokeModel(any(InvokeModelRequest.class))).thenThrow(
-				BedrockRuntimeException.builder().message("throttled").build());
+	void reportsTheGeminiErrorMessage() throws Exception {
+		stub(400, "{\"error\":{\"message\":\"API key not valid.\"}}");
 
 		assertThatThrownBy(() -> images.create("prompt", "Shoe"))
 				.isInstanceOf(GenerationException.class)
-				.hasMessageContaining("throttled");
+				.hasMessageContaining("API key not valid");
+	}
+
+	private void stub(int status, String body) throws IOException, InterruptedException {
+		HttpResponse<String> response = mock(HttpResponse.class);
+		when(response.statusCode()).thenReturn(status);
+		when(response.body()).thenReturn(body);
+		when(http.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any())).thenReturn(response);
+	}
+
+	private static AiProperties properties() {
+		AiProperties properties = new AiProperties();
+		properties.getGemini().setApiKey("test-key");
+		properties.getGemini().setImageModel("gemini-3.1-flash-image");
+		return properties;
 	}
 }

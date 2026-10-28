@@ -10,7 +10,7 @@ Spring Boot API for brand collaborations and upcycled products. PostgreSQL store
 - PostgreSQL 17 with pgvector
 - Lombok
 - springdoc OpenAPI
-- AWS SDK v2: S3, and Bedrock in `eu-central-1` for chat (Nova Pro), embeddings (Titan v2), and images
+- AWS SDK v2: S3, and Bedrock in `eu-central-1` for chat (Nova Pro) and embeddings (Titan v2). Product images come from Gemini.
 - JUnit 5, AssertJ, Mockito, Testcontainers, JaCoCo
 
 ## Layout

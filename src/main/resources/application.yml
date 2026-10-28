@@ -57,7 +57,9 @@ ai:
   bedrock:
     model: ${BEDROCK_MODEL:eu.amazon.nova-pro-v1:0}
     embedding-model: ${BEDROCK_EMBEDDING_MODEL:amazon.titan-embed-text-v2:0}
-    image-model: ${BEDROCK_IMAGE_MODEL:amazon.nova-canvas-v1:0}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    image-model: ${GEMINI_IMAGE_MODEL:gemini-3.1-flash-image}
 
 app:
   cors-allowed-origins: ${FRONTEND_URL:http://localhost:5173}
