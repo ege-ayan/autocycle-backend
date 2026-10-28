@@ -1,0 +1,71 @@
+server:
+  port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: autocycle-backend
+  threads:
+    virtual:
+      enabled: true
+  jackson:
+    default-property-inclusion: non_null
+  datasource:
+    url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:autocycle}
+    username: ${DATABASE_USERNAME:autocycle}
+    password: ${DATABASE_PASSWORD:autocycle}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /api/v3/api-docs
+  swagger-ui:
+    path: /api/docs
+
+logging:
+  level:
+    root: INFO
+    org.springframework: WARN
+    org.hibernate.SQL: WARN
+    com.autocycle.backend: INFO
+
+ai:
+  bedrock:
+    model: ${BEDROCK_MODEL:eu.amazon.nova-pro-v1:0}
+    embedding-model: ${BEDROCK_EMBEDDING_MODEL:amazon.titan-embed-text-v2:0}
+    image-model: ${BEDROCK_IMAGE_MODEL:amazon.nova-canvas-v1:0}
+
+app:
+  cors-allowed-origins: ${FRONTEND_URL:http://localhost:5173}
+  similarity-threshold: ${SIMILARITY_THRESHOLD:0.8}
+  vector-enabled: ${APP_VECTOR_ENABLED:true}
+  s3-region: ${AWS_REGION:eu-central-1}
+  s3-bucket: ${AWS_S3_BUCKET:}
+  s3-access-key-id: ${AWS_ACCESS_KEY_ID:}
+  s3-secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+  s3-endpoint: ${AWS_S3_ENDPOINT:}
+  s3-public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}

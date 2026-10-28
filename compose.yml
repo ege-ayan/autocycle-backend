@@ -1,0 +1,47 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: autocycle
+      POSTGRES_USER: autocycle
+      POSTGRES_PASSWORD: autocycle
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autocycle -d autocycle"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: autocycle
+      DATABASE_USERNAME: autocycle
+      DATABASE_PASSWORD: autocycle
+      SERVER_PORT: 8080
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  localstack:
+    image: localstack/localstack:4
+    profiles: ["local-aws"]
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: eu-central-1
+
+volumes:
+  pgdata:
